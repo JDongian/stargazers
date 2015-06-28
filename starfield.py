@@ -21,12 +21,14 @@ ADMIN_URL = "https://github.com/settings/admin"
 JOIN_URL = "https://github.com/join"
 DELETE_URL = "https://github.com/users/{username}"
 REPO_URL = "https://github.com/{repo}/"
+USER_URL = "https://github.com/{user}"
+FOLLOW_URL = "https://github.com/users/follow?target={user}"
 
 
-def _get_auth_token(html, star_page=False):
+def _get_auth_token(html, multi_page=False):
     """Tony the pony would not approve."""
-    if star_page:
-        return re.findall("action=\".*/(\\w*star).*?"
+    if multi_page:
+        return re.findall("action=\".*/(\\w+).*?"
                           "<input name=\"authenticity_token\" type=\"hidden\" "
                           "value=\"(.*?)\" />", html)
     else:
@@ -103,7 +105,24 @@ def star_repo(repo, session):
                    'Referer': repo_url}
         return session.post(star_url, headers=headers, data=data)
     else:
-        return False
+        return False  # Failed attempt
+
+
+def follow_user(user, session):
+    """Follow a github user."""
+    user_url = USER_URL.format(user=user)
+    follow_url = FOLLOW_URL.format(user=user)
+    page = session.get(user_url).content.decode()
+    tokens = dict(_get_auth_token(page, True))
+    authenticity_token = tokens.get('follow')
+    if authenticity_token:
+        data = {'utf8': "✓",
+                'authenticity_token': authenticity_token}
+        headers = {'Host': HOST,
+                   'Referer': user_url}
+        return session.post(follow_url, headers=headers, data=data)
+    else:
+        return False  # Failed attempt
 
 
 if __name__ == "__main__":
@@ -126,6 +145,7 @@ if __name__ == "__main__":
         s = requests.session()
         login(uname, passwd, s)
         star_repo(REPO, s)
+        # follow_user("", s)
 
     for n in range(START, START+COUNT):
         uname = NAME.format(n=n)
